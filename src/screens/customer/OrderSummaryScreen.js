@@ -12,27 +12,48 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import { useCart } from '../../context/CartContext';
 import LoadingIndicator from '../../components/LoadingIndicator';
+import { useAuth } from '../../context/AuthContext';
+import { checkLocationPermission } from '../../services/locationUtils';
 
 export default function OrderSummaryScreen({ navigation }) {
   const { cart, clearCart } = useCart();
+  const { user, userProfile } = useAuth();
   const [placing, setPlacing] = useState(false);
 
   const handlePlaceOrder = async () => {
+    // Check address from userProfile
+    if (!userProfile || !userProfile.address || userProfile.address.trim() === '') {
+      Alert.alert(
+        'Missing Address',
+        'Please fill in your address in the profile/settings screen before placing an order.'
+      );
+      return;
+    }
+
+    const hasLocation = await checkLocationPermission();
+    if (!hasLocation) {
+      Alert.alert(
+        'Location Required',
+        'Please enable location permission to place an order.'
+      );
+      return;
+    }
+
     setPlacing(true);
-    
     try {
       const orderData = {
         items: cart.items,
         total: cart.total,
         timestamp: serverTimestamp(),
-        status: 'pending'
+        status: 'pending',
+        customerId: user?.uid || null,
       };
 
       await addDoc(collection(db, 'orders'), orderData);
-      
+
       clearCart();
       setPlacing(false);
-      
+
       Alert.alert(
         'Order Placed Successfully!',
         'Thank you for your order. We\'ll prepare it for you shortly.',
@@ -58,10 +79,10 @@ export default function OrderSummaryScreen({ navigation }) {
     <View style={styles.orderItem}>
       <View style={styles.itemDetails}>
         <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemPrice}>${item.price.toFixed(2)} × {item.quantity}</Text>
+        <Text style={styles.itemPrice}>₹{item.price.toFixed(2)} × {item.quantity}</Text>
       </View>
       <Text style={styles.itemTotal}>
-        ${(item.price * item.quantity).toFixed(2)}
+        ₹{(item.price * item.quantity).toFixed(2)}
       </Text>
     </View>
   );
@@ -92,20 +113,20 @@ export default function OrderSummaryScreen({ navigation }) {
         <View style={styles.totalContainer}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Subtotal:</Text>
-            <Text style={styles.totalValue}>${cart.total.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>₹{cart.total.toFixed(2)}</Text>
           </View>
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Tax (8%):</Text>
-            <Text style={styles.totalValue}>${(cart.total * 0.08).toFixed(2)}</Text>
+            <Text style={styles.totalLabel}>Tax (5%):</Text>
+            <Text style={styles.totalValue}>₹{(cart.total * 0.05).toFixed(2)}</Text>
           </View>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Delivery:</Text>
-            <Text style={styles.totalValue}>$2.99</Text>
+            <Text style={styles.totalValue}>₹50</Text>
           </View>
           <View style={[styles.totalRow, styles.finalTotal]}>
             <Text style={styles.finalTotalLabel}>Total:</Text>
             <Text style={styles.finalTotalValue}>
-              ${(cart.total + cart.total * 0.08 + 2.99).toFixed(2)}
+              ₹{(cart.total + cart.total * 0.05 + 50).toFixed(2)}
             </Text>
           </View>
         </View>

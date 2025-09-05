@@ -14,7 +14,6 @@ export default function MenuItem({ item }) {
 
   const handleAddToCart = () => {
     addToCart(item);
-    Alert.alert('Added to Cart', `${item.name} has been added to your cart!`);
   };
 
   return (
@@ -24,7 +23,7 @@ export default function MenuItem({ item }) {
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.description}>{item.description}</Text>
         <View style={styles.footer}>
-          <Text style={styles.price}>${item.price.toFixed(2)}</Text>
+          <Text style={styles.price}>₹{item.price.toFixed(2)}</Text>
           <TouchableOpacity style={styles.addButton} onPress={handleAddToCart}>
             <Text style={styles.addButtonText}>Add to Cart</Text>
           </TouchableOpacity>

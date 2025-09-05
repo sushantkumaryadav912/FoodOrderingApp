@@ -9,11 +9,15 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [splashLoading, setSplashLoading] = useState(true);
 
   useEffect(() => {
+    const splashTimeout = setTimeout(() => {
+      setSplashLoading(false);
+    }, 3000);
 
-    // Helper to retry fetching the user document
     const fetchUserDocWithRetry = async (userDocRef, maxRetries = 5, delayMs = 500) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         const userDoc = await getDoc(userDocRef);
@@ -33,22 +37,35 @@ export const AuthProvider = ({ children }) => {
       try {
         if (firebaseUser) {
           const userDocRef = doc(db, 'users', firebaseUser.uid);
-          // Retry up to 5 times with 500ms delay
           const userDoc = await fetchUserDocWithRetry(userDocRef);
           console.log('[AuthContext] Firestore userDoc.exists:', userDoc && userDoc.exists());
           if (userDoc && userDoc.exists()) {
             setUser(firebaseUser);
             setUserData(userDoc.data());
+            // Fetch user profile from userProfiles collection
+            try {
+              const profileDocRef = doc(db, 'userProfiles', firebaseUser.uid);
+              const profileDoc = await getDoc(profileDocRef);
+              if (profileDoc.exists()) {
+                setUserProfile(profileDoc.data());
+              } else {
+                setUserProfile(null);
+              }
+            } catch (profileErr) {
+              setUserProfile(null);
+              console.error('[AuthContext] Error fetching user profile:', profileErr);
+            }
           } else {
-            // Edge case: Auth user exists without a Firestore document
             setUser(null);
             setUserData(null);
-            await auth.signOut(); // Log them out to prevent issues
+            setUserProfile(null);
+            await auth.signOut();
             console.log('[AuthContext] User signed out due to missing Firestore doc');
           }
         } else {
           setUser(null);
           setUserData(null);
+          setUserProfile(null);
         }
       } catch (err) {
         console.error('[AuthContext] Error in onAuthStateChanged:', err);
@@ -58,7 +75,10 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
-    return unsubscribe;
+    return () => {
+      clearTimeout(splashTimeout);
+      unsubscribe();
+    };
   }, []);
 
   if (loading) {
@@ -66,7 +86,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading }}>
+    <AuthContext.Provider value={{ user, userData, userProfile, loading, splashLoading }}>
       {children}
     </AuthContext.Provider>
   );

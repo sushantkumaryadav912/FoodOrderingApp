@@ -59,7 +59,7 @@ export default function RestaurantMenuScreen({ navigation }) {
     <View style={styles.itemContainer}>
       <View style={styles.itemInfo}>
         <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+        <Text style={styles.itemPrice}>₹{item.price.toFixed(2)}</Text>
       </View>
       <View style={styles.itemActions}>
         <TouchableOpacity

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  FlatList,
+  SectionList,
   StyleSheet,
   Text,
   TouchableOpacity,
-  RefreshControl
+  RefreshControl,
+  TextInput
 } from 'react-native';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
@@ -18,6 +19,7 @@ export default function MenuScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { cart } = useCart();
 
   useEffect(() => {
@@ -44,16 +46,34 @@ export default function MenuScreen({ navigation }) {
 
   const onRefresh = () => {
     setRefreshing(true);
-    // The onSnapshot listener will automatically refresh the data
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const renderMenuItem = ({ item }) => <MenuItem item={item} />;
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <Text style={styles.headerTitle}>Our Menu</Text>
-      <Text style={styles.headerSubtitle}>Choose your favorite dishes</Text>
+  const filteredMenuItems = menuItems.filter(item => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return true;
+    const nameMatch = item.name && item.name.toLowerCase().includes(query);
+    const restaurantMatch = item.restaurantName && item.restaurantName.toLowerCase().includes(query);
+    return nameMatch || restaurantMatch;
+  });
+
+  // Group items by restaurantName
+  const groupedByRestaurant = filteredMenuItems.reduce((groups, item) => {
+    const key = item.restaurantName || 'Other';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+    return groups;
+  }, {});
+
+  const sections = Object.keys(groupedByRestaurant).map(restaurantName => ({
+    title: restaurantName,
+    data: groupedByRestaurant[restaurantName],
+  }));
+
+  const renderMenuItem = ({ item }) => (
+    <View style={styles.menuItemContainer}>
+      <MenuItem item={item} />
     </View>
   );
 
@@ -74,24 +94,43 @@ export default function MenuScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={menuItems}
+      <View style={styles.searchBarWrapper}>
+        <TextInput
+          style={styles.customSearchInput}
+          placeholder="Search for items or restaurants..."
+          placeholderTextColor="#aaa"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCorrect={false}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+        />
+      </View>
+      <SectionList
+        sections={sections}
         renderItem={renderMenuItem}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
+        renderSectionHeader={({ section: { title } }) => (
+          <Text style={styles.restaurantName}>{title}</Text>
+        )}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={{ alignItems: 'center', marginTop: 40 }}>
+            <Text style={{ color: '#888', fontSize: 16 }}>No items found.</Text>
+          </View>
+        }
+        stickySectionHeadersEnabled={false}
       />
-      
       {cart.items.length > 0 && (
         <TouchableOpacity
           style={styles.cartButton}
           onPress={() => navigation.navigate('Cart')}
         >
           <Text style={styles.cartButtonText}>
-            View Cart ({cart.items.length} items) - ${cart.total.toFixed(2)}
+            View Cart ({cart.items.length} items) - ₹{cart.total.toFixed(2)}
           </Text>
         </TouchableOpacity>
       )}
@@ -104,21 +143,49 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  header: {
-    padding: 20,
+  searchBarWrapper: {
     backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  customSearchInput: {
+    backgroundColor: '#f1f3f6',
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    fontSize: 17,
     color: '#333',
-    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    elevation: 1,
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#666',
+  menuItemContainer: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 0,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  restaurantName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#FF6B35',
+    marginBottom: 4,
+    marginLeft: 4,
   },
   errorContainer: {
     flex: 1,

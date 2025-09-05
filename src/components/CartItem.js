@@ -32,7 +32,7 @@ export default function CartItem({ item }) {
       <Image source={{ uri: item.imageUrl }} style={styles.image} />
       <View style={styles.details}>
         <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.price}>${item.price.toFixed(2)} each</Text>
+        <Text style={styles.price}>₹{item.price.toFixed(2)} each</Text>
         <View style={styles.controls}>
           <View style={styles.quantityControls}>
             <TouchableOpacity style={styles.quantityButton} onPress={handleDecrement}>
@@ -48,7 +48,7 @@ export default function CartItem({ item }) {
           </TouchableOpacity>
         </View>
         <Text style={styles.totalPrice}>
-          Total: ${(item.price * item.quantity).toFixed(2)}
+          Total: ₹{(item.price * item.quantity).toFixed(2)}
         </Text>
       </View>
     </View>

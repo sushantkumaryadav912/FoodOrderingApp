@@ -40,22 +40,27 @@ export default function CartScreen({ navigation }) {
       <Text style={styles.emptySubtitle}>Add some delicious items to get started!</Text>
       <TouchableOpacity
         style={styles.shopButton}
-        onPress={() => navigation.navigate('Menu')}
+        onPress={() => {
+          navigation.navigate('HomeTab', { screen: 'Menu' });
+        }}
       >
         <Text style={styles.shopButtonText}>Start Shopping</Text>
       </TouchableOpacity>
     </View>
   );
 
+  const getTotalItemCount = () =>
+    cart.items.reduce((sum, item) => sum + (item.quantity || 1), 0);
+
   const renderCartSummary = () => (
     <View style={styles.summaryContainer}>
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>Total Items:</Text>
-        <Text style={styles.summaryValue}>{cart.items.length}</Text>
+        <Text style={styles.summaryValue}>{getTotalItemCount()}</Text>
       </View>
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>Total Amount:</Text>
-        <Text style={styles.summaryTotal}>${cart.total.toFixed(2)}</Text>
+        <Text style={styles.summaryTotal}>₹{cart.total.toFixed(2)}</Text>
       </View>
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.clearButton} onPress={handleClearCart}>

@@ -12,24 +12,26 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signOut, updatePassword, updateEmail, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
 
-export default function SettingsScreen() {
+export default function RestaurantSettingsScreen({ navigation }) {
   const { user, userData } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // Profile state
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  // Restaurant profile state
+  const [restaurantName, setRestaurantName] = useState('');
+  const [description, setDescription] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [cuisine, setCuisine] = useState('');
+  const [openingHours, setOpeningHours] = useState('');
+  const [ownerName, setOwnerName] = useState('');
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -40,63 +42,72 @@ export default function SettingsScreen() {
   const [focusedField, setFocusedField] = useState(null);
 
   useEffect(() => {
-    loadUserProfile();
+    loadRestaurantProfile();
   }, []);
 
-  const loadUserProfile = async () => {
+  const loadRestaurantProfile = async () => {
     if (!user) return;
     
     setLoading(true);
     try {
-      const userDocRef = doc(db, 'userProfiles', user.uid);
-      const userDoc = await getDoc(userDocRef);
+      const restaurantDocRef = doc(db, 'restaurants', user.uid);
+      const restaurantDoc = await getDoc(restaurantDocRef);
       
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setFirstName(data.firstName || '');
-        setLastName(data.lastName || '');
+      if (restaurantDoc.exists()) {
+        const data = restaurantDoc.data();
+        setRestaurantName(data.restaurantName || '');
+        setDescription(data.description || '');
         setPhoneNumber(data.phoneNumber || '');
         setAddress(data.address || '');
-        setDateOfBirth(data.dateOfBirth || '');
+        setCuisine(data.cuisine || '');
+        setOpeningHours(data.openingHours || '');
+        setOwnerName(data.ownerName || '');
       }
     } catch (error) {
-      console.error('Error loading user profile:', error);
-      Alert.alert('Error', 'Failed to load profile information.');
+      console.error('Error loading restaurant profile:', error);
+      Alert.alert('Error', 'Failed to load restaurant profile.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSaveProfile = async () => {
+    if (!restaurantName.trim()) {
+      Alert.alert('Required Field', 'Restaurant name is required.');
+      return;
+    }
+
     setSaveLoading(true);
     try {
-      const profileData = {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
+      const restaurantData = {
+        restaurantName: restaurantName.trim(),
+        description: description.trim(),
         phoneNumber: phoneNumber.trim(),
         address: address.trim(),
-        dateOfBirth: dateOfBirth.trim(),
+        cuisine: cuisine.trim(),
+        openingHours: openingHours.trim(),
+        ownerName: ownerName.trim(),
         updatedAt: new Date(),
-        userId: user.uid,
+        ownerId: user.uid,
       };
 
-      const userDocRef = doc(db, 'userProfiles', user.uid);
-      const userDoc = await getDoc(userDocRef);
+      const restaurantDocRef = doc(db, 'restaurants', user.uid);
+      const restaurantDoc = await getDoc(restaurantDocRef);
 
-      if (userDoc.exists()) {
-        await updateDoc(userDocRef, profileData);
+      if (restaurantDoc.exists()) {
+        await updateDoc(restaurantDocRef, restaurantData);
       } else {
-        await setDoc(userDocRef, {
-          ...profileData,
+        await setDoc(restaurantDocRef, {
+          ...restaurantData,
           createdAt: new Date(),
         });
       }
 
-      Alert.alert('Success', 'Profile updated successfully!');
+      Alert.alert('Success', 'Restaurant profile updated successfully!');
       setEditingProfile(false);
     } catch (error) {
-      console.error('Error saving profile:', error);
-      Alert.alert('Error', 'Failed to save profile. Please try again.');
+      console.error('Error saving restaurant profile:', error);
+      Alert.alert('Error', 'Failed to save restaurant profile. Please try again.');
     } finally {
       setSaveLoading(false);
     }
@@ -177,19 +188,22 @@ export default function SettingsScreen() {
     );
   };
 
-  const renderInputField = (label, value, onChangeText, placeholder, keyboardType = 'default', secureTextEntry = false) => (
+  const renderInputField = (label, value, onChangeText, placeholder, multiline = false, keyboardType = 'default', secureTextEntry = false) => (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
       <View style={[
         styles.inputWrapper,
-        focusedField === label && styles.inputWrapperFocused
+        focusedField === label && styles.inputWrapperFocused,
+        multiline && styles.multilineWrapper
       ]}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, multiline && styles.multilineInput]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="#999"
+          multiline={multiline}
+          numberOfLines={multiline ? 3 : 1}
           onFocus={() => setFocusedField(label)}
           onBlur={() => setFocusedField(null)}
           keyboardType={keyboardType}
@@ -203,7 +217,7 @@ export default function SettingsScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#FF6B35" />
-        <Text style={styles.loadingText}>Loading your profile...</Text>
+        <Text style={styles.loadingText}>Loading restaurant profile...</Text>
       </View>
     );
   }
@@ -216,16 +230,16 @@ export default function SettingsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.profileIcon}>
-            <Ionicons name="person" size={40} color="#FF6B35" />
+            <Ionicons name="storefront" size={40} color="#FF6B35" />
           </View>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <Text style={styles.headerSubtitle}>Manage your account and preferences</Text>
+          <Text style={styles.headerTitle}>Restaurant Settings</Text>
+          <Text style={styles.headerSubtitle}>Manage your restaurant profile and details</Text>
         </View>
 
-        {/* Profile Section */}
+        {/* Restaurant Profile Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Profile Information</Text>
+            <Text style={styles.sectionTitle}>Restaurant Information</Text>
             <TouchableOpacity
               onPress={() => setEditingProfile(!editingProfile)}
               style={styles.editButton}
@@ -240,18 +254,65 @@ export default function SettingsScreen() {
 
           {editingProfile ? (
             <View style={styles.formContainer}>
-              {renderInputField('First Name', firstName, setFirstName, 'Enter your first name')}
-              {renderInputField('Last Name', lastName, setLastName, 'Enter your last name')}
-              {renderInputField('Phone Number', phoneNumber, setPhoneNumber, '+1 (555) 123-4567', 'phone-pad')}
-              {renderInputField('Address', address, setAddress, 'Enter your address')}
-              {renderInputField('Date of Birth', dateOfBirth, setDateOfBirth, 'MM/DD/YYYY')}
+              {renderInputField(
+                'Restaurant Name *',
+                restaurantName,
+                setRestaurantName,
+                'Enter your restaurant name'
+              )}
+
+              {renderInputField(
+                'Description',
+                description,
+                setDescription,
+                'Tell customers about your restaurant...',
+                true
+              )}
+
+              {renderInputField(
+                'Owner/Manager Name',
+                ownerName,
+                setOwnerName,
+                'Your name'
+              )}
+
+              {renderInputField(
+                'Phone Number',
+                phoneNumber,
+                setPhoneNumber,
+                '+1 (555) 123-4567',
+                false,
+                'phone-pad'
+              )}
+
+              {renderInputField(
+                'Address',
+                address,
+                setAddress,
+                'Restaurant address',
+                true
+              )}
+
+              {renderInputField(
+                'Cuisine Type',
+                cuisine,
+                setCuisine,
+                'e.g., Italian, Chinese, Fast Food'
+              )}
+
+              {renderInputField(
+                'Opening Hours',
+                openingHours,
+                setOpeningHours,
+                'e.g., Mon-Sun: 9:00 AM - 10:00 PM'
+              )}
 
               <View style={styles.buttonRow}>
                 <TouchableOpacity
                   style={styles.cancelButton}
                   onPress={() => {
                     setEditingProfile(false);
-                    loadUserProfile(); // Reset fields
+                    loadRestaurantProfile(); // Reset fields
                   }}
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -273,10 +334,14 @@ export default function SettingsScreen() {
           ) : (
             <View style={styles.profileDisplay}>
               <View style={styles.profileItem}>
-                <Text style={styles.profileLabel}>Name</Text>
+                <Text style={styles.profileLabel}>Restaurant Name</Text>
                 <Text style={styles.profileValue}>
-                  {firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Not provided'}
+                  {restaurantName || 'Not provided'}
                 </Text>
+              </View>
+              <View style={styles.profileItem}>
+                <Text style={styles.profileLabel}>Owner</Text>
+                <Text style={styles.profileValue}>{ownerName || 'Not provided'}</Text>
               </View>
               <View style={styles.profileItem}>
                 <Text style={styles.profileLabel}>Phone</Text>
@@ -286,13 +351,21 @@ export default function SettingsScreen() {
                 <Text style={styles.profileLabel}>Address</Text>
                 <Text style={styles.profileValue}>{address || 'Not provided'}</Text>
               </View>
+              <View style={styles.profileItem}>
+                <Text style={styles.profileLabel}>Cuisine</Text>
+                <Text style={styles.profileValue}>{cuisine || 'Not provided'}</Text>
+              </View>
+              <View style={styles.profileItem}>
+                <Text style={styles.profileLabel}>Hours</Text>
+                <Text style={styles.profileValue}>{openingHours || 'Not provided'}</Text>
+              </View>
             </View>
           )}
         </View>
 
-        {/* Account Section */}
+        {/* Account Security Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>Account Security</Text>
           
           <View style={styles.accountItem}>
             <Ionicons name="mail-outline" size={20} color="#666" />
@@ -316,9 +389,9 @@ export default function SettingsScreen() {
 
           {changingPassword && (
             <View style={styles.passwordChangeForm}>
-              {renderInputField('Current Password', currentPassword, setCurrentPassword, 'Enter current password', 'default', true)}
-              {renderInputField('New Password', newPassword, setNewPassword, 'Enter new password', 'default', true)}
-              {renderInputField('Confirm New Password', confirmPassword, setConfirmPassword, 'Confirm new password', 'default', true)}
+              {renderInputField('Current Password', currentPassword, setCurrentPassword, 'Enter current password', false, 'default', true)}
+              {renderInputField('New Password', newPassword, setNewPassword, 'Enter new password', false, 'default', true)}
+              {renderInputField('Confirm New Password', confirmPassword, setConfirmPassword, 'Confirm new password', false, 'default', true)}
 
               <View style={styles.buttonRow}>
                 <TouchableOpacity
@@ -377,7 +450,7 @@ export default function SettingsScreen() {
         {/* Account Info Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Member since {userData?.createdAt?.toDate?.()?.toLocaleDateString?.() || 'Unknown'}
+            Restaurant member since {userData?.createdAt?.toDate?.()?.toLocaleDateString?.() || 'Unknown'}
           </Text>
         </View>
       </ScrollView>
@@ -481,11 +554,18 @@ const styles = StyleSheet.create({
     borderColor: '#FF6B35',
     backgroundColor: '#FFFFFF',
   },
+  multilineWrapper: {
+    paddingVertical: 8,
+  },
   input: {
     fontSize: 16,
     color: '#333',
     paddingVertical: 12,
     minHeight: 44,
+  },
+  multilineInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   buttonRow: {
     flexDirection: 'row',
